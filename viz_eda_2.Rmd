@@ -7,6 +7,7 @@ output: github_document
 library(tidyverse)
 library(ggridges)
 library(viridis)
+library(patchwork)
 
 knitr::opts_chunk$set(
   fig.width = 6,
@@ -107,9 +108,137 @@ weather_df %>%
     y = "Maximum daily temp (C)",
     caption = "Data from moaa package with 3 stations"
   )  + 
-  scale_color_viridis()
+  scale_color_viridis_d()
 
 
+
+```
+
+
+## Themes
+
+
+```{r}
+
+weather_df %>%
+  ggplot(aes(x=tmin,y=tmax,color=name)) +
+  geom_point(alpha=0.3) +
+  labs(
+    title = "Temperature at 3 stations",
+    x = "Minimum daily temp (C)",
+    y = "Maximum daily temp (C)",
+    caption = "Data from moaa package with 3 stations"
+  )  + 
+  scale_color_viridis_d() +
+  theme_minimal() + # has to come before legend position bc goes to defaults
+  theme(
+    legend.position = "bottom"
+  )
+
+
+```
+
+## data in geoms
+
+```{r}
+central_park = 
+  weather_df  %>%
+  filter(name == "CentralPark_NY")
+
+waikiki = 
+  weather_df  %>%
+  filter(name == "Waikiki_HA")
+
+waikiki %>%
+  ggplot(aes(x=date,y=tmax,color=name)) +
+  geom_point() +
+  geom_line(data=central_park)
+
+```
+
+## patchwork
+
+```{r}
+
+tmax_tmin_p = 
+  weather_df %>% 
+  ggplot(aes(x = tmax, y = tmin, color = name)) + 
+  geom_point(alpha = .5) +
+  theme(legend.position = "none")
+
+prcp_dens_p = 
+  weather_df %>% 
+  filter(prcp > 0) %>% 
+  ggplot(aes(x = prcp, fill = name)) + 
+  geom_density(alpha = .5) + 
+  theme(legend.position = "none")
+
+tmax_date_p = 
+  weather_df %>% 
+  ggplot(aes(x = date, y = tmax, color = name)) + 
+  geom_point(alpha = .5) +
+  geom_smooth(se = FALSE) + 
+  theme(legend.position = "bottom")
+
+(tmax_tmin_p + prcp_dens_p) / tmax_date_p
+
+```
+
+## data  manipulation
+
+factors
+
+```{r}
+
+weather_df %>%
+  mutate(
+    name = fct_reorder(name, tmax) # order variables by tmax, name becomes factor variable
+  ) %>%
+  ggplot(aes(x=name,y=tmax)) +
+  geom_boxplot()
+
+```
+
+tmax and tminn
+
+```{r}
+
+weather_df %>%
+  pivot_longer(
+    tmax:tmin,
+    names_to = "obs",
+    values_to="temperature"
+  ) %>%
+  ggplot(aes(x=temperature,fill=obs)) +
+  geom_density(alpha=.3) +
+  facet_grid(. ~name)
+
+```
+
+```{r}
+
+pulse_df = 
+  haven::read_sas("data/public_pulse_data.sas7bdat") %>%
+  janitor::clean_names() %>%
+  pivot_longer(
+    bdi_score_bl:bdi_score_12m,
+    names_to = "visit", 
+    names_prefix = "bdi_score_",
+    values_to = "bdi") %>%
+  mutate(
+    visit = recode(visit, "bl" = "00m"),
+    visit = factor(visit, levels = str_c(c("00", "01", "06", "12"), "m")))
+
+pulse_df %>%
+  ggplot(aes(x=visit,y=bdi)) +
+  geom_boxplot()
+
+colnames(pulse_df)
+
+pulse_df %>%
+  ggplot(aes(x=visit,y=bdi)) +
+  geom_point(size=.2) +
+  geom_line(aes(id))
 
 ```
 
@@ -117,4 +246,35 @@ weather_df %>%
 
 
 
+```{r}
+
+pup_data = 
+  read_csv("./data/FAS_pups.csv", col_types = "ciiiii") %>%
+  janitor::clean_names() %>%
+  mutate(sex = recode(sex, `1` = "male", `2` = "female")) 
+
+litter_data = 
+  read_csv("./data/FAS_litters.csv", col_types = "ccddiiii") %>%
+  janitor::clean_names() %>%
+  separate(group, into = c("dose", "day_of_tx"), sep = 3)
+
+fas_data = left_join(pup_data, litter_data, by = "litter_number") 
+
+fas_data %>% 
+  select(sex, dose, day_of_tx, pd_ears:pd_walk) %>% 
+  pivot_longer(
+    pd_ears:pd_walk,
+    names_to = "outcome", 
+    values_to = "pn_day") %>% 
+  drop_na() %>% 
+  mutate(outcome = forcats::fct_reorder(outcome, pn_day, median)) %>% 
+  ggplot(aes(x = dose, y = pn_day)) + 
+  geom_violin() + 
+  facet_grid(day_of_tx ~ outcome)
+
+```
+
+
+```{r}
+```
 
