@@ -1,0 +1,178 @@
+---
+title: "Viz EDA 3"
+output: github_document
+---
+
+```{r, echo = FALSE, message=FALSE}
+library(tidyverse)
+library(ggridges)
+library(viridis)
+library(patchwork)
+
+knitr::opts_chunk$set(
+  fig.width = 6,
+  fig.asp = .6,
+  out.width = "90%"
+)
+
+```
+
+
+
+```{r}
+
+weather_df =  
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728", "USC00519397", "USS0023B17S"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(
+      id, 
+      USW00094728 = "CentralPark_NY", 
+      USC00519397 = "Waikiki_HA",
+      USS0023B17S = "Waterhole_WA"),
+    tmin = tmin / 10,
+    tmax = tmax / 10,
+    month = lubridate::floor_date(date, unit = "month")) %>%
+  select(name, id, everything())
+
+weather_df
+```
+
+```{r}
+
+weather_df %>%
+  group_by(name,month) %>%
+  summarize(n_obs=n())
+
+```
+
+
+Summarize better than table bc it creates a dataframe you can use in ggplot.
+
+```{r}
+
+weather_df %>%
+  pull(name) %>%
+  table()
+
+```
+
+
+```{r}
+
+weather_df %>%
+  janitor::tabyl(month,name)
+```
+
+
+```{r}
+
+weather_df %>%
+  group_by(name,  month) %>%
+  summarize(
+    n_obs = n(),
+    mean_tmax = mean(tmax, na.rm = TRUE),
+    median_tmax = median(tmax, na.rm = TRUE),
+    sd_max = sd(tmax, na.rm = TRUE)
+  ) %>%
+  ggplot(aes(x=month,y=mean_tmax,color=name)) +
+  geom_point() +
+  geom_line()
+
+```
+
+```{r}
+
+weather_df %>%
+  group_by(name,  month) %>%
+  summarize(
+    n_obs = n(),
+    mean_tmax = mean(tmax, na.rm = TRUE)
+  ) %>%
+  knitr::kable(digits=2)
+
+```
+
+grouped mutate
+
+```{r}
+
+weather_df %>%
+  group_by(name) %>%
+  mutate(
+    mean_tmax = mean(tmax, na.rm = TRUE),
+    centered_tmax = tmax - mean_tmax # subtract mean  from weather station, group-specific centering
+  )  %>%
+  ggplot(aes(x=date,y=centered_tmax,color=name)) +
+  geom_point()
+
+```
+
+
+```{r}
+
+weather_df %>%
+  group_by(name) %>%
+  mutate(
+    tmax_rank = min_rank(tmax) # x coldest day in central  park
+  ) %>%
+  filter(tmax_rank < 2)  # coldest day in each
+
+# use desc(tmax)  in min_rank to get hottest
+
+```
+
+
+
+lagged variables
+
+```{r}
+
+weather_df %>%
+  group_by(name) %>% # make sure lag  works by location
+  mutate(
+    lagged_tmax = lag(tmax,n=1), # lag info from day before
+    tmax_diff  = tmax-lagged_tmax
+  ) %>%
+  summarize(diff_sd = sd(tmax_diff,na.rm = TRUE)) #   how much does  temp change day to day in each of these  locations
+
+# order df  is in makes a difference here (arrange to make sure they are ordered)
+
+```
+
+
+```{r}
+
+weather_df %>%
+  group_by(name) %>%
+  summarize(
+    cor_tmin_tmax = cor(tmin,tmax,use="complete")
+  )
+
+weather_df %>%
+  filter(name=="CentralPark_NY") %>%
+  lm(tmax ~tmin, data = .)
+
+
+
+# this doesn't work w summarize, needs to be vector, sinnglle vaule
+weather_df %>%
+  filter(name=="CentralPark_NY") %>%
+  summarize(lm=lm(tmax ~tmin, data = .))
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
