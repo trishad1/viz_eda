@@ -1,0 +1,169 @@
+---
+title: "Case Study"
+output: github_document
+---
+
+```{r, echo = FALSE, message=FALSE}
+library(tidyverse)
+library(ggridges)
+library(viridis)
+library(patchwork)
+
+knitr::opts_chunk$set(
+  fig.width = 6,
+  fig.asp = .6,
+  out.width = "90%"
+)
+
+```
+
+```{r}
+
+library(p8105.datasets)
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+scale_colour_discrete = scale_color_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+
+```
+
+
+```{r}
+
+data(nyc_airbnb)
+
+```
+
+```{r}
+
+nyc_airbnb
+
+```
+
+How many rentals are there?  Of  what  type? In what places?
+
+```{r}
+
+nyc_airbnb = 
+  nyc_airbnb %>%
+  mutate(stars = review_scores_location / 2) %>%
+  rename(borough  = neighbourhood_group)
+
+
+```
+
+
+```{r}
+
+nyc_airbnb %>%
+  janitor::tabyl(borough, room_type) # count(borough,room_type) %>% pivot_wider(names_from=room_type,values_from=n)
+
+
+```
+
+
+Is  price correlated with review score?
+
+```{r}
+
+nyc_airbnb_price_reviews = 
+  nyc_airbnb %>%
+  select(id, name, borough, neighbourhood, price, number_of_reviews, stars)
+
+nyc_airbnb_price_reviews
+
+```
+
+
+```{r}
+
+ggplot(nyc_airbnb_price_reviews, 
+       aes(x=price, y=stars, color=borough)) +
+  geom_point()
+
+
+```
+
+price, room type
+```{r}
+
+ggplot(nyc_airbnb, 
+       aes(x=stars, y=price, color=room_type)) +
+  geom_point() +
+  facet_grid(. ~ room_type)
+
+```
+
+
+```{r}
+
+ggplot(nyc_airbnb, 
+       aes(x=stars, y=price, color=borough)) +
+  geom_point() +
+  facet_grid(. ~ borough)
+
+```
+
+```{r}
+
+nyc_airbnb %>%
+  filter(borough == "Manhattan") %>%
+  group_by(neighbourhood) %>%
+  summarize(mean_price = mean(price, na.rm  =  TRUE)) %>%
+    arrange(mean_price)
+
+```
+
+
+
+What neighborhood is most popular? Most expensive?
+
+```{r}
+
+# count(borough,room_type) %>% pivot_wider(names_from=room_type,values_from=n)
+
+nyc_airbnb_price_reviews %>%
+  filter(borough == 'Manhattan') %>%
+  count(neighbourhood, stars) %>%
+  mutate(
+    total_stars = stars*n
+  )  %>%
+  group_by(neighbourhood) %>%
+  summarize(sum_num = sum(n),
+    sum_stars = sum(total_stars, na.rm = TRUE)) %>%
+  mutate(
+    avg_stars = sum_stars/sum_num
+  ) %>%
+  select(neighbourhood, avg_stars) %>%
+  mutate(
+    avg_stars = round(avg_stars,2) 
+  ) %>%
+  arrange(desc(avg_stars))
+  
+  
+
+
+```
+
+
+Price v location
+
+```{r}
+
+nyc_airbnb %>%
+  filter(price<500) %>%
+  sample_n(5000) %>%
+  ggplot(aes(x=lat,y=long,color=price)) +
+  geom_point()
+
+```
+
+
+Can use leaflet as well - look at example
+
+
+
